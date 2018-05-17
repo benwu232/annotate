@@ -1,5 +1,6 @@
 __author__ = 'wb'
 
+from matplotlib.widgets import Cursor
 import urllib.request, urllib.error, urllib.parse
 import time
 import datetime
@@ -180,24 +181,16 @@ class Visual:
         else:
             self.cal_tickers[ticker] = 1
 
-
-        #Calculate indicators
-        x = 0
-        y = len(self.data_df)
-
-        # the data has already been calculated
-        #if ticker in self.calculated:
-        #    return
-
         self.candle_stick_data[ticker] = []
         self.date2num_list[ticker] = []
-        while x < y:
-            date_num = pd.to_datetime(self.data_df.index/2, unit='s')
-            appendLine = date_num, self.data_df.data['Open'].iloc[x], self.data_df.data['Close'].iloc[x], self.data_df.data['High'].iloc[x], self.data_df.data['Low'].iloc[x], self.data_df.data['Volume'].iloc[x]
-            self.candle_stick_data[ticker].append(appendLine)
-            self.date2num_list[ticker].append(date_num)
-            x+=1
 
+        self.time_line = pd.to_datetime(self.data_df.index/2, unit='s').values
+        self.price_line = self.data_df['LastPrice'].values
+        #self.price_line = np.nan_to_num(self.price_line)
+        self.volume_line = self.data_df['Volume'].values
+        #self.volume_line = np.nan_to_num(self.volume_line)
+
+        '''
         self.av1[ticker] = talib.SMA(self.data_df.data['Close'].values, self.ma1)
         self.av2[ticker] = talib.SMA(self.data_df.data['Close'].values, self.ma2)
         self.av3[ticker] = talib.SMA(self.data_df.data['Close'].values, self.ma3)
@@ -231,13 +224,6 @@ class Visual:
         self.nobv[ticker] = qute_algo.cal_nobv(self.data_df.data['Close'].values, self.data_df.data['Volume'].values, 40, 40)
         #obv_single = misc.cal_ma_obv_single(self.stock.data)
         #self.ma_obv[ticker], dummy = talib.MAMA(obv_single)
-        '''
-        self.ma_obv20[ticker] = misc.cal_ma_obv(self.stock.data['Close'].values, self.stock.data['Volume'].values, 20)
-        self.ma_obv90[ticker] = misc.cal_ma_obv(self.stock.data['Close'].values, self.stock.data['Volume'].values, 90)
-        self.ma_obv60[ticker] = misc.cal_ma_obv(self.stock.data['Close'].values, self.stock.data['Volume'].values, 60)
-        self.obv_glue[ticker] = (self.ma_obv20[ticker] - self.ma_obv90[ticker]) / self.ma_obv60[ticker]
-        '''
-
 
         #self.volume_glue_idx[ticker] = misc.cal_volume_glue_idx(self.stock.data['Close'].values, self.stock.data['Volume'].values, short=20, long=90, middle=60)
 
@@ -248,7 +234,6 @@ class Visual:
         self.slowj[ticker] = 3*self.slowk[ticker] - 2*self.slowd[ticker]
 
         self.dif[ticker], self.dem[ticker], self.macdhist[ticker] = talib.MACD(self.data_df.data['Close'].values, fastperiod=12, slowperiod=26, signalperiod=9)
-
 
         #cal RSV
         length = len(self.data_pool[ticker].data['Close'])
@@ -273,66 +258,7 @@ class Visual:
             rsv = (self.data_pool[ticker].data['Close'].iloc[k] - self.low_values[ticker][k]) / (self.high_values[ticker][k] - self.low_values[ticker][k])
             self.rsv[ticker][k] = (rsv)
             k+=1
-
-        #cal efficiency
         '''
-        self.efficiency[ticker] = np.zeros(length)
-        idx = 0
-        while idx < length:
-            self.efficiency[ticker][idx] = misc.price_trace_efficiency(self.stock_pool[ticker], idx, 20)
-            idx += 1
-
-        '''
-
-
-        '''
-        self.alr_slope_v[ticker] = np.zeros(length)
-        self.alr_slope_p[ticker] = np.zeros(length)
-        idx = 240
-        while idx < length:
-            alr_par_v, alr_slope_v, alr_std_v, alr_period_v = misc.adapt_lr1(self.ma_obv1[ticker], idx, alr_start=30, max_alr_period=240)
-            self.alr_slope_v[ticker][idx] = alr_slope_v
-            alr_par_p, alr_slope_p, alr_std_p, alr_period_p = misc.adapt_lr1(self.stock_pool[ticker].data['Close'].values, idx, alr_start=30, max_alr_period=240)
-            self.alr_slope_p[ticker][idx] = alr_slope_p
-            idx += 1
-        '''
-
-
-        '''
-        #try new strategy
-        f = open('tmp.log', 'w')
-        self.predict_values[ticker] = np.zeros(length)
-        self.slope_list[ticker] = np.zeros(length)
-        self.pr_sl[ticker] = np.zeros(length)
-        idx = 240
-        last_predict_deviation = 0.0
-        deviation = 0.0
-        rise = 0
-        while idx < length:
-
-            middle, m_slope, std_min, std_min_n = misc.linear_regression(self.stock, idx-1)
-            mid_a = middle[0]
-            mid_b = middle[1]
-            self.slope_list[ticker][idx] = mid_a
-
-            #predict_y = mid_a * idx + mid_b + last_predict_deviation
-            predict_y = mid_a * idx + mid_b
-            deviation = (self.stock.data['Close'].iloc[idx] - predict_y) / self.stock.data['Close'].iloc[idx]
-            last_predict_deviation = deviation
-            self.predict_values[ticker][idx] = deviation
-
-            if self.stock.data['Close'].iloc[idx] > self.stock.data['Close'].iloc[idx-1]:
-                rise = 1
-            else:
-                rise = 0
-
-            f.write('%s, std_min = %f, std_min_n = %d, slope = %f, deviation = %f, %f\n' % (self.stock.data['Date'].iloc[idx], std_min, std_min_n, m_slope, deviation, self.stock.data['Close'].iloc[idx]))
-
-            idx += 1
-
-        self.pr_sl[ticker] = self.predict_values[ticker] + self.slope_list[ticker]
-        '''
-
 
 
     def draw_circle(self, ticker, x, max_circle_radius=500):
@@ -358,8 +284,119 @@ class Visual:
         if action == -1:
             center_idx_color = 'g'
 
+        #self.ax1.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
+        self.ax1.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
+        self.ax1.scatter(self.time_line, self.price_line, s=10, c='gray', alpha=0.5)
+        self.ax1.grid(True, color='gray')
 
-        self.ax1 = plt.subplot2grid((6,4), (1,0), rowspan=4, colspan=4, axisbg='#07000d')
+        self.ax2 = self.ax1.twinx()
+        volume_line = np.nan_to_num(self.volume_line)
+        self.ax2.set_ylim(0, 3 * volume_line.max())
+        #self.ax2.plot(self.time_line, self.volume_line, 'c', label='Volume', linewidth=1)
+        self.ax2.fill_between(self.time_line, self.volume_line, color='gray', label='Volume', linewidth=1)
+        #self.ax2.fill_between(self.,ys,where=ys>=d, color='blue')
+        #volume_width = 0.2
+        #self.ax2.bar(self.time_line, self.volume_line, width=volume_width, color='c', alpha=0.5)
+        #self.ax2.bar(self.time_line, self.volume_line, color='c', alpha=0.5)
+
+        '''
+        self.ax1.xaxis.set_major_locator(mticker.MaxNLocator(10))
+        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        self.ax1.yaxis.label.set_color("gray")
+        self.ax1.spines['bottom'].set_color("#5998ff")
+        self.ax1.spines['top'].set_color("#5998ff")
+        self.ax1.spines['left'].set_color("#5998ff")
+        self.ax1.spines['right'].set_color("#5998ff")
+        self.ax1.tick_params(axis='y', colors='gray')
+        plt.gca().yaxis.set_major_locator(mticker.MaxNLocator(prune='upper'))
+        self.ax1.tick_params(axis='x', colors='gray')
+        plt.ylabel('Price and Volume')
+
+        maLeg = plt.legend(loc=9, ncol=2, prop={'size':7}, fancybox=True, borderaxespad=0.)
+        maLeg.get_frame().set_alpha(0.4)
+        textEd = pylab.gca().get_legend().get_texts()
+        pylab.setp(textEd[0:5], color='gray')
+        '''
+
+        '''
+        #####Volume
+        ax1v = self.ax1.twinx()
+        
+        # Display the volume given by up or down
+        volume_width = 0.6
+        ax1v.bar(self.time_line, self.volume_line, width=volume_width, color='c', alpha=0.5)
+
+        #ax1v.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.ma_v[ticker][self.win_start:self.center_idx+1], 'y', linewidth=1.5)
+
+        ax1v.axes.yaxis.set_ticklabels([])
+        ax1v.grid(False)
+        ax1v.set_ylim(0, 3 * self.volume_line.max())
+        ax1v.spines['bottom'].set_color("#5998ff")
+        ax1v.spines['top'].set_color("#5998ff")
+        ax1v.spines['left'].set_color("#5998ff")
+        ax1v.spines['right'].set_color("#5998ff")
+        ax1v.tick_params(axis='x', colors='w')
+        ax1v.tick_params(axis='y', colors='w')
+        plt.ylabel('Volume')
+        '''
+
+    def draw2(self, ticker, action):
+        center_idx_color = 'm'
+        if action == -1:
+            center_idx_color = 'g'
+
+
+        self.ax1 = plt.subplot2grid((6,4), (1,0), rowspan=4, colspan=4)#, axisbg='#07000d')
+        #self.ax1.set_facecolor((0, 0, 0))
+
+        #self.ax1.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
+        self.ax1.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
+        self.ax1.grid(True, color='gray')
+        '''
+        self.ax1.xaxis.set_major_locator(mticker.MaxNLocator(10))
+        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        self.ax1.yaxis.label.set_color("gray")
+        self.ax1.spines['bottom'].set_color("#5998ff")
+        self.ax1.spines['top'].set_color("#5998ff")
+        self.ax1.spines['left'].set_color("#5998ff")
+        self.ax1.spines['right'].set_color("#5998ff")
+        self.ax1.tick_params(axis='y', colors='gray')
+        plt.gca().yaxis.set_major_locator(mticker.MaxNLocator(prune='upper'))
+        self.ax1.tick_params(axis='x', colors='gray')
+        plt.ylabel('Price and Volume')
+
+        maLeg = plt.legend(loc=9, ncol=2, prop={'size':7}, fancybox=True, borderaxespad=0.)
+        maLeg.get_frame().set_alpha(0.4)
+        textEd = pylab.gca().get_legend().get_texts()
+        pylab.setp(textEd[0:5], color='gray')
+        '''
+
+        '''
+        #####Volume
+        ax1v = self.ax1.twinx()
+        
+        # Display the volume given by up or down
+        volume_width = 0.6
+        ax1v.bar(self.time_line, self.volume_line, width=volume_width, color='c', alpha=0.5)
+
+        #ax1v.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.ma_v[ticker][self.win_start:self.center_idx+1], 'y', linewidth=1.5)
+
+        ax1v.axes.yaxis.set_ticklabels([])
+        ax1v.grid(False)
+        ax1v.set_ylim(0, 3 * self.volume_line.max())
+        ax1v.spines['bottom'].set_color("#5998ff")
+        ax1v.spines['top'].set_color("#5998ff")
+        ax1v.spines['left'].set_color("#5998ff")
+        ax1v.spines['right'].set_color("#5998ff")
+        ax1v.tick_params(axis='x', colors='w')
+        ax1v.tick_params(axis='y', colors='w')
+        plt.ylabel('Volume')
+        '''
+
+
+
+    def draw1(self, ticker, action):
+
 
         if not self.hide_circle:
             win_idx = self.win_start
@@ -402,58 +439,6 @@ class Visual:
         self.ax1.plot(self.date2num_list[ticker][self.win_start:self.win_end+1],self.lowerband[ticker][self.win_start:self.win_end+1],'c', linewidth=1, linestyle = '-.')
 
 
-        '''
-        #####
-        lowess_slope_list = []
-        slope_list = []
-        idx = self.win_start
-        while idx <= self.center_idx:
-            lowess, lowss_slope = misc.cal_lowess(self.stock, idx, 240)
-            lowess_slope_list.append(lowess_slope*240)
-            r, slope = misc.strategy(self.stock, idx)
-            slope_list.append(slope*240)
-            idx += 1
-        '''
-
-        #try new strategy
-        '''
-        regression, slope_240, peaks_max_group, peaks_min_group, peaks_max, peaks_min = misc.strategy3(self.stock, self.center_idx, self.center_idx+1-self.win_start)
-        ava = talib.SMA(self.stock.data['Close'].values, 5)
-        for p in peaks_max_group[-1]['data']:
-            self.ax1.plot(self.date2num_list[ticker][p], ava[p], 'ro')
-        for p in peaks_min_group[-1]['data']:
-            self.ax1.plot(self.date2num_list[ticker][p], ava[p], 'go')
-
-        diff = self.sma5[ticker][self.center_idx] - (regression[0] * self.center_idx + regression[1])
-
-        print self.center_idx, self.stock.data['Date'].iloc[self.center_idx], slope_240, diff, diff/self.sma5[ticker][self.center_idx]
-        '''
-
-
-        '''
-        points_top, pars_top, points_bottom, pars_bottom = misc.strategy2(self.stock, self.center_idx)
-        p_idx = 0
-        x_start = points_top[p_idx][-1]
-        x_end = points_top[p_idx][0]
-
-        while p_idx < len(points_top):
-            if points_top[p_idx][0] <= self.win_start or points_top[p_idx][-1] >= self.win_end:
-                break
-            elif points_top[p_idx][0] < self.win_end:
-                x_end = self.win_end
-            elif points_top[p_idx][-1] > self.win_start:
-                x_start = self.win_start
-
-            x_arr = np.array(range(x_start, x_end+1))
-            y_arr = pars_top[p_idx][0] * x_arr + pars_top[p_idx][1]
-            y_arr[y_arr > max_high] = max_high
-            y_arr[y_arr < min_low] = min_low
-            self.ax1.plot(self.date2num_list[ticker][x_start:x_end+1], y_arr, 'w--')
-            p_idx+=1
-        '''
-
-
-
         #display the tagged points
         tagged_idx = 0
         tagged_len = len(self.tagged_points[ticker]['time'])
@@ -476,15 +461,6 @@ class Visual:
                 self.ax1.axvline(date_num, ymax=(self.ax1.axis())[-1], color = 'g', alpha=0.5)
                 #self.ax1.plot(date_num, self.stock_pool[ticker].data['Close'].iloc[time_idx], 'go')
             tagged_idx += 1
-
-        '''
-        #Display current index of prices and volumes
-        self.ax1.text(self.key_footnote, 0.98,  '%s\n%s\n%s\n%s\n%s\n%sM\n%s\n%sM' %(self.stock.data['Date'].values[self.center_idx], str(self.stock.data['Open'].values[self.center_idx])[:5], str(self.stock.data['High'].values[self.center_idx])[:5], str(self.stock.data['Low'].values[self.center_idx])[:5], str(self.stock.data['Close'].values[self.center_idx])[:5], str(round(self.stock.data['Volume'].values[self.center_idx]/1000000.0)), str(self.win_end-self.win_start+1), str(round(self.ma_obv[ticker][self.center_idx]/1000000.0))),
-        fontsize=10, alpha=1.0,
-        horizontalalignment='left',
-        verticalalignment='top',
-        transform=self.ax1.transAxes, color=center_idx_color)
-        '''
 
         #deceration
         self.ax1.grid(True, color='w')
@@ -538,128 +514,6 @@ class Visual:
         ax1v.tick_params(axis='y', colors='w')
 
 
-        '''
-        #############################################################################################
-        #try strategy
-        middle, m_slope, std_min, std_min_n = qute_algo.adapt_lr(self.stock, self.center_idx-1)
-        mid_a = middle[0]
-        mid_b = middle[1]
-        max_high = self.stock.data['High'].iloc[self.win_start:self.win_end+1].values.max()
-        min_low = self.stock.data['Low'].iloc[self.win_start:self.win_end+1].values.min()
-
-        mid_x_arr = []
-        mid_y_arr = []
-        mid_x = self.win_start
-        while mid_x <= self.win_end:
-            mid_y = mid_a * mid_x + mid_b
-            if mid_y < max_high and mid_y > min_low:
-               mid_x_arr.append(mid_x)
-               mid_y_arr.append(mid_y)
-            mid_x+=1
-
-        #self.ax1.plot(mid_x_arr, mid_y_arr, 'y')
-        if mid_y_arr:
-            self.ax1.plot(self.date2num_list[ticker][mid_x_arr[0]:mid_x_arr[-1]+1], mid_y_arr, 'y--')
-        #print('std_min = %f, std_min_n = %d, slope = %f, deviation = %f' % (std_min, std_min_n, m_slope, self.predict_values[ticker][self.center_idx]))
-        #print('Adapt_lr slope: %f\n' % m_slope*100)
-
-        # linear regression of volume
-        v_period = 20
-        v_x_arr = []
-        v_y_arr = []
-        v_idx = max(self.center_idx-v_period, self.win_start)
-        v_x_max = min(self.center_idx+v_period, self.win_end)
-        left = max(self.center_idx-v_period, 0)
-        v_max_high = self.stock.data['Volume'].iloc[left:self.center_idx+v_period].values.max()
-        v_min_low = self.stock.data['Volume'].iloc[left:self.center_idx+v_period].values.min()
-
-        alr_par_v, alr_slope_v, alr_std_v, alr_period_v = qute_algo.adapt_lr1(self.stock.data['Volume'].values, self.center_idx, alr_start=20, max_alr_period=240)
-
-        while v_idx < v_x_max:
-            v_y = alr_par_v[0] * v_idx + alr_par_v[1]
-            if v_y > v_min_low and v_y < v_max_high:
-                v_x_arr.append(v_idx)
-                v_y_arr.append(v_y)
-            v_idx += 1
-
-        ax1v.plot(self.date2num_list[ticker][v_x_arr[0]:v_x_arr[-1]+1], v_y_arr, 'y--', linewidth=1)
-
-        '''
-
-
-        '''
-        #try lowess
-        lowess, lowss_slope = qute_algo.cal_lowess(self.stock, self.center_idx, self.center_idx+1-self.win_start)
-        #self.ax1.plot(self.date2num_list[ticker][int(lowess[:,0][0]):int(lowess[:,0][-1]+1)], lowess[:,1], 'w--')
-        #print len(self.date2num_list[ticker][self.win_start+1:self.center_idx+1]), len(lowess[:,1][-(self.center_idx+1-self.win_start):-1])
-        self.ax1.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], lowess[:,1][-(self.center_idx+1-self.win_start):], 'w--')
-        lowess_start = -6
-        lowess_end = -1
-        lowess_slope = (lowess[:,1][lowess_end] - lowess[:,1][lowess_start]) / (lowess_end-lowess_start)
-        lowess_slope1 = (lowess[:,1][-1] - lowess[:,1][-2])
-        diff = self.sma5[ticker][self.center_idx] - lowess[:,1][-1]
-
-        #print self.center_idx, self.stock.data['Date'].iloc[self.center_idx], lowess_slope1*240, diff, diff/self.sma5[ticker][self.center_idx]
-
-        #try peaks_lr
-        peaks_max, peaks_min, peaks, data = self.plr.find_peaks(self.stock, self.center_idx-1, before=40)
-        cur_peak = self.plr.get_cur_peak(peaks_max, peaks_min)
-
-        if peaks_max != []:
-            for p in peaks_max:
-                if p < self.win_start:
-                    peaks_max.remove(p)
-            if peaks_max != []:
-                for p in peaks_max:
-                    self.ax1.plot(self.date2num_list[ticker][p], self.stock.data['Close'].iloc[p], 'ro')
-
-        if peaks_min != []:
-            for p in peaks_min:
-                if p < self.win_start:
-                    peaks_min.remove(p)
-            if peaks_min != []:
-                for p in peaks_min:
-                    self.ax1.plot(self.date2num_list[ticker][p], self.stock.data['Close'].iloc[p], 'go')
-
-        if cur_peak != None:
-            self.ax1.plot(self.date2num_list[ticker][cur_peak], self.stock.data['Close'].iloc[cur_peak], 'yo')
-
-
-
-        max_high = self.stock.data['High'].iloc[self.win_start:self.win_end+1].values.max()
-        min_low = self.stock.data['Low'].iloc[self.win_start:self.win_end+1].values.min()
-        max_lr_par, max_slope, max_predict_err, max_period, max_std, min_lr_par, min_slope, min_predict_err, min_period, min_std, alr_par, alr_slope, alr_predict_err, alr_period, alr_std, alr_par_v, alr_slope_v, alr_std_v, alr_period_v= self.plr.run(self.stock, self.center_idx)
-
-        max_x_arr = []
-        max_y_arr = []
-        max_x = self.win_start
-        while max_x <= self.win_end:
-            max_y = max_lr_par[0] * max_x + max_lr_par[1]
-            if max_y > min_low and max_y < max_high:
-               max_x_arr.append(max_x)
-               max_y_arr.append(max_y)
-            max_x+=1
-
-        if max_x_arr != [] and max_y_arr != []:
-            self.ax1.plot(self.date2num_list[ticker][max_x_arr[0]:max_x_arr[-1]+1], max_y_arr, 'g--')
-
-        min_x_arr = []
-        min_y_arr = []
-        min_x = self.win_start
-        while min_x <= self.win_end:
-            min_y = min_lr_par[0] * min_x + min_lr_par[1]
-            if min_y > min_low and min_y < max_high:
-               min_x_arr.append(min_x)
-               min_y_arr.append(min_y)
-            min_x+=1
-
-        if max_x_arr != [] and min_y_arr != []:
-            self.ax1.plot(self.date2num_list[ticker][min_x_arr[0]:min_x_arr[-1]+1], min_y_arr, 'm--')
-
-        '''
-
-
-
         ################################################################################################################
         ####KDJ
         self.ax0 = plt.subplot2grid((6,4), (0,0), sharex=self.ax1, rowspan=1, colspan=4, axisbg='#07000d')
@@ -671,24 +525,6 @@ class Visual:
         #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.efficiency[ticker][self.win_start:self.center_idx+1], 'b', linewidth=1.5)
         #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.alr_slope_v[ticker][self.win_start:self.center_idx+1], 'g', linewidth=1.5)
         #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.alr_slope_p[ticker][self.win_start:self.center_idx+1], 'y', linewidth=1.5)
-
-        '''
-        self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.slowk[ticker][self.win_start:self.win_end+1], 'b', linewidth=1.5)
-        self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.slowd[ticker][self.win_start:self.win_end+1], 'g', linewidth=1.5)
-        self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.slowj[ticker][self.win_start:self.win_end+1], 'r', linewidth=1.5)
-        '''
-
-        '''
-        #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], slope_list, 'r', linewidth=1.5)
-        #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], lowess_slope_list, 'g', linewidth=1.5)
-        self.ax0.plot(self.date2num_list[ticker][self.win_start:self.center_idx], self.predict_values[ticker][self.win_start:self.center_idx], 'r', linewidth=1.5)
-        self.ax0.axhline(0, color='b')
-        self.ax0v = self.ax0.twinx()
-        self.ax0v.plot(self.date2num_list[ticker][self.win_start:self.center_idx], (self.slope_list[ticker][self.win_start:self.center_idx])*1, 'g', linewidth=1.5)
-
-        self.ax0.plot(self.date2num_list[ticker][self.win_start:self.center_idx], self.pr_sl[ticker][self.win_start:self.center_idx], 'y', linewidth=1.5)
-        #print(self.predict_values[ticker][self.center_idx], self.slope_list[ticker][self.center_idx])
-        '''
 
         #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.obv[ticker][self.win_start:self.win_end+1], color='r')
         self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.ma_obv1[ticker][self.win_start:self.win_end+1], color='r')
@@ -719,14 +555,6 @@ class Visual:
             self.ax2.axvline(self.date2num_list[ticker][self.center_idx], ymax=(self.ax2.axis())[-1], color = center_idx_color, alpha=0.5)
 
         # MACD #
-        '''
-        self.ax2.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.dif[ticker][self.win_start:self.win_end+1], color='red')
-        self.ax2.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.dem[ticker][self.win_start:self.win_end+1], color='green')
-        self.ax2.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.macdhist[ticker][self.win_start:self.win_end+1], color='yellow')
-        #self.ax2.fill_between(self.date2num_list[ticker][self.win_start:self.win_end+1], dif[ticker][self.win_start:self.win_end+1], dem[ticker][self.win_start:self.win_end+1], where=(dif[ticker][self.win_start:self.win_end+1]<dem[ticker][self.win_start:self.win_end+1]), facecolor='g', edgecolor='g', alpha=0.5)
-        self.ax2.fill_between(self.date2num_list[ticker][self.win_start:self.win_end+1], 0, self.macdhist[ticker][self.win_start:self.win_end+1], where=(self.dif[ticker][self.win_start:self.win_end+1] < self.dem[ticker][self.win_start:self.win_end+1]), facecolor='g', edgecolor='g', alpha=0.5)
-        self.ax2.fill_between(self.date2num_list[ticker][self.win_start:self.win_end+1], 0, self.macdhist[ticker][self.win_start:self.win_end+1], where=(self.dif[ticker][self.win_start:self.win_end+1] >= self.dem[ticker][self.win_start:self.win_end+1]), facecolor='r', edgecolor='r', alpha=0.5)
-        '''
 
         #glue index
         #self.ax2.set_ylim(-2, 2)
@@ -743,15 +571,6 @@ class Visual:
         #self.ax0.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.nobv[ticker][self.win_start:self.win_end+1]*0.0, color='m')
         self.ax2.axhline(y=0, color='m')
 
-
-
-        '''
-        self.ax2_2 = self.ax2.twinx()
-        self.ax2_2.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.ma_obv[ticker][self.win_start:self.win_end+1], color='b')
-        self.ax2_2.plot(self.date2num_list[ticker][self.win_start:self.win_end+1], self.ma_obv[ticker][self.win_start:self.win_end+1]*0.0, color='b')
-        '''
-
-
         max_x = np.argmax(self.av_glue_idx[ticker][self.win_start:self.win_end+1]) + self.win_start
         max_y = np.max(self.av_glue_idx[ticker][self.win_start:self.win_end+1])
         min_x = np.argmin(self.av_glue_idx[ticker][self.win_start:self.win_end+1]) + self.win_start
@@ -763,16 +582,6 @@ class Visual:
         #print max_x-self.win_start, max_y, min_x-self.win_start, min_y, self.win_start, self.date2num_list[ticker][self.win_start]
         self.ax2.plot(self.date2num_list[ticker][max_x], max_y, 'y+', self.date2num_list[ticker][min_x], min_y, 'yo')
         #self.ax2.plot(self.date2num_list[ticker][max_x], max_y, 'g+')
-
-        '''
-        slope_period = 20
-        start = self.center_idx-slope_period
-        end = self.center_idx
-        self.price_slope = misc.cal_slope_angle(np.array(range(start,end)), self.stock_pool[ticker].data['Close'].iloc[start:end])
-        #print self.stock_pool[ticker].data['Close'].iloc[start:end]
-        #self.volume_slope = misc.cal_slope_angle(np.array(range(start,end)), self.ma_obv1[ticker][start:end]/1000000.0)
-        '''
-
 
 
         #Display current index of prices and volumes
@@ -928,11 +737,13 @@ class Visual:
             self.tagged_points[e[0]]['time'].append(e[1])
             self.tagged_points[e[0]]['action'].append(e[2])
 
+        '''
         #Init figure
         #self.fig = plt.figure()
         #plt.switch_backend('TkAgg')
         plt.switch_backend('QT5Agg')
-        self.fig = plt.figure(facecolor='#07000d')
+        #self.fig = plt.figure(facecolor='#07000d')
+        self.fig = plt.figure()
         mng = plt.get_current_fig_manager()
         #mng.window.state('zoomed')
         #mng.full_screen_toggle()
@@ -950,29 +761,20 @@ class Visual:
 
         self.fig.canvas.mpl_connect('key_press_event', self.on_press)
         #self.fig.canvas.mpl_connect('key_press_event', self.on_pick)
-
         '''
-        self.center_dates = []
-        if type(time) == str:
-            self.center_dates.append(time)
-        elif type(time) == list:
-            self.center_dates = time
-        self.center_dates_idx = 0
+        self.fig, self.ax1 = plt.subplots()
+        #on_move_id = self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
+        #cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
+        self.fig.canvas.mpl_connect('key_press_event', self.on_press)
 
-        if self.center_dates == None:
-            print('Invalid date.')
-            return
-        '''
         #self.tagged_set = set(self.ticker)
         self.cal_all_data(self.symbol)
 
         self.run_idx = -1
-        self.jump2next()
+        #self.jump2next()
         self.draw(self.symbol, self.action)
-
-        if self.plt_show == 0:
-            plt.show()
-            self.plt_show = 1
+        cursor = Cursor(self.ax1, useblit=True, color='c', linewidth=1)
+        plt.show()
 
         #save to files
         self.save2files()
@@ -1148,6 +950,7 @@ class Visual:
         print('on click')
         print(event.xdata, event.ydata, event.x, event.y)
 
+        '''
         if (event.xdata):
             time_str = dt2str(mdates.num2date(event.xdata))
             self.left_time = time_str
@@ -1159,36 +962,30 @@ class Visual:
             self.center_idx = time_num
             self.draw(self.symbol, self.action)
             plt.draw()
+        '''
 
     def on_move(self, event):
         #print('on move')
         #print(event.xdata, event.ydata, event.x, event.y)
+        '''
         if (event.xdata):
             self.draw(self.symbol, self.action)
-            time_str = dt2str(mdates.num2date(event.xdata))
-            self.right_time = time_str
-            time_num = self.data_df.time_str2idx(time_str, type=1)
+            self.ax1.text(self.mouse_footnote, 0.98,  '%s\n%s\n%s\n' % (str(self.time_line[event.x])[:19], str(self.price_line[event.x]), str(self.volume_line[event.x])),
+                          fontsize=10, alpha=1.0,
+                          horizontalalignment='left',
+                          verticalalignment='top',
+                          transform=self.ax1.transAxes, color='y')
+        '''
 
-            # Text: price, volume...
-            if time_num > 0:
-                self.ax1.text(self.mouse_footnote, 0.98,  '%s\n%s\n%s\n%s\n%s\n%sM\n%s' % (self.data_df.data['Date'].values[time_num], str(self.data_df.data['Open'].values[time_num])[:5], str(self.data_df.data['High'].values[time_num])[:5], str(self.data_df.data['Low'].values[time_num])[:5], str(self.data_df.data['Close'].values[time_num])[:5], str(round(self.data_df.data['Volume'].values[time_num] / 1000000.0)), str(self.win_end - self.win_start + 1)),
-                              fontsize=10, alpha=1.0,
-                              horizontalalignment='left',
-                              verticalalignment='top',
-                              transform=self.ax1.transAxes, color='y')
+            ##draw vertical line
+            #self.ax1.axvline(event.xdata, ymax=(self.ax1.axis())[-1], color = 'y', alpha=0.5)
+            #self.ax0.axvline(event.xdata, ymax=(self.ax0.axis())[-1], color = 'y', alpha=0.5)
+            #self.ax2.axvline(event.xdata, ymax=(self.ax2.axis())[-1], color = 'y', alpha=0.5)
 
-            #draw circle
-            #radius, circle_color = self.draw_circle(self.ticker, time_num)
-            #self.ax1.plot(self.date2num_list[self.ticker][time_num], self.candle_stick_data[self.ticker][time_num][2], '.', color=circle_color, markersize=radius, alpha=0.4)
+        #self.draw(self.symbol, self.action)
+        self.ax1.axvline(event.xdata, ymax=(self.ax1.axis())[-1], color = 'y', alpha=0.5)
 
-            #draw vertical line
-            self.ax1.axvline(event.xdata, ymax=(self.ax1.axis())[-1], color = 'y', alpha=0.5)
-            self.ax0.axvline(event.xdata, ymax=(self.ax0.axis())[-1], color = 'y', alpha=0.5)
-            self.ax2.axvline(event.xdata, ymax=(self.ax2.axis())[-1], color = 'y', alpha=0.5)
-
-            plt.draw()
-            #f = plt.figure()
-            #f.canvas.draw()
+        plt.draw()
 
     #Check keyboard event
     def on_press(self, event):
