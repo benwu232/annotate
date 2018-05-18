@@ -1,6 +1,7 @@
 __author__ = 'wb'
 
 from matplotlib.widgets import Cursor
+import matplotlib
 import urllib.request, urllib.error, urllib.parse
 import time
 import datetime
@@ -20,6 +21,62 @@ from matplotlib.transforms import Bbox
 from lib.common import *
 
 matplotlib.rcParams.update({'font.size': 9})
+
+
+class CrossHair(object):
+    def __init__(self, ax):
+        self.ax = ax
+        self.lx = ax.axhline(color='k')  # the horiz line
+        self.ly = ax.axvline(color='k')  # the vert line
+
+        # text location in axes coords
+        #self.txt = ax.text(0.7, 0.9, '', transform=ax.transAxes)
+
+    def mouse_move(self, event):
+        if not event.inaxes:
+            return
+
+        x, y = event.xdata, event.ydata
+        # update the line positions
+        self.lx.set_ydata(y)
+        self.ly.set_xdata(x)
+
+        #self.txt.set_text('x=%1.2f, y=%1.2f' % (x, y))
+        plt.draw()
+
+
+class CrossHairSnap(object):
+    """
+    Like Cursor but the crosshair snaps to the nearest x,y point
+    For simplicity, I'm assuming x is sorted
+    """
+
+    def __init__(self, ax, x, y):
+        self.ax = ax
+        self.lx = ax.axhline(color='k')  # the horiz line
+        self.ly = ax.axvline(color='k')  # the vert line
+        self.x = x
+        self.y = y
+        # text location in axes coords
+        #self.txt = ax.text(0.7, 0.9, '', transform=ax.transAxes)
+
+    def mouse_move(self, event):
+
+        if not event.inaxes:
+            return
+
+        x, y = event.xdata, event.ydata
+
+        indx = min(np.searchsorted(self.x, [x])[0], len(self.x) - 1)
+        x = self.x[indx]
+        y = self.y[indx]
+        # update the line positions
+        self.lx.set_ydata(y)
+        self.ly.set_xdata(x)
+
+        #self.txt.set_text('x=%1.2f, y=%1.2f' % (x, y))
+        #print('x=%1.2f, y=%1.2f' % (x, y))
+        plt.draw()
 
 
 RIGHT_CORNER = 0.93
@@ -185,10 +242,12 @@ class Visual:
         self.date2num_list[ticker] = []
 
         self.time_line = pd.to_datetime(self.data_df.index/2, unit='s').values
+        self.x_line = list(range(len(self.time_line)))
         self.price_line = self.data_df['LastPrice'].values
         #self.price_line = np.nan_to_num(self.price_line)
         self.volume_line = self.data_df['Volume'].values
         #self.volume_line = np.nan_to_num(self.volume_line)
+        self.seq_len = len(self.price_line)
 
         '''
         self.av1[ticker] = talib.SMA(self.data_df.data['Close'].values, self.ma1)
@@ -284,74 +343,21 @@ class Visual:
         if action == -1:
             center_idx_color = 'g'
 
-        #self.ax1.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
-        self.ax1.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
-        self.ax1.scatter(self.time_line, self.price_line, s=10, c='gray', alpha=0.5)
-        self.ax1.grid(True, color='gray')
+        #volume_line = np.nan_to_num(self.volume_line)
+        self.ax1.set_ylim(0, 3 * self.volume_line.max())
+        ###self.ax1.plot(self.time_line, self.volume_line, 'c', label='Volume', linewidth=1)
+        self.ax1.fill_between(self.time_line, self.volume_line, color='gray', label='Volume', linewidth=1)
 
-        self.ax2 = self.ax1.twinx()
-        volume_line = np.nan_to_num(self.volume_line)
-        self.ax2.set_ylim(0, 3 * volume_line.max())
-        #self.ax2.plot(self.time_line, self.volume_line, 'c', label='Volume', linewidth=1)
-        self.ax2.fill_between(self.time_line, self.volume_line, color='gray', label='Volume', linewidth=1)
-        #self.ax2.fill_between(self.,ys,where=ys>=d, color='blue')
+        #self.ax2.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
+        self.ax2.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
+        self.ax2.plot(self.time_line, self.price_line, 'go')
+        #self.ax2.scatter(self.time_line, self.price_line, s=10, c='gray', alpha=0.5)
+        self.ax2.grid(True, color='gray')
+
         #volume_width = 0.2
         #self.ax2.bar(self.time_line, self.volume_line, width=volume_width, color='c', alpha=0.5)
         #self.ax2.bar(self.time_line, self.volume_line, color='c', alpha=0.5)
 
-        '''
-        self.ax1.xaxis.set_major_locator(mticker.MaxNLocator(10))
-        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        self.ax1.yaxis.label.set_color("gray")
-        self.ax1.spines['bottom'].set_color("#5998ff")
-        self.ax1.spines['top'].set_color("#5998ff")
-        self.ax1.spines['left'].set_color("#5998ff")
-        self.ax1.spines['right'].set_color("#5998ff")
-        self.ax1.tick_params(axis='y', colors='gray')
-        plt.gca().yaxis.set_major_locator(mticker.MaxNLocator(prune='upper'))
-        self.ax1.tick_params(axis='x', colors='gray')
-        plt.ylabel('Price and Volume')
-
-        maLeg = plt.legend(loc=9, ncol=2, prop={'size':7}, fancybox=True, borderaxespad=0.)
-        maLeg.get_frame().set_alpha(0.4)
-        textEd = pylab.gca().get_legend().get_texts()
-        pylab.setp(textEd[0:5], color='gray')
-        '''
-
-        '''
-        #####Volume
-        ax1v = self.ax1.twinx()
-        
-        # Display the volume given by up or down
-        volume_width = 0.6
-        ax1v.bar(self.time_line, self.volume_line, width=volume_width, color='c', alpha=0.5)
-
-        #ax1v.plot(self.date2num_list[ticker][self.win_start:self.center_idx+1], self.ma_v[ticker][self.win_start:self.center_idx+1], 'y', linewidth=1.5)
-
-        ax1v.axes.yaxis.set_ticklabels([])
-        ax1v.grid(False)
-        ax1v.set_ylim(0, 3 * self.volume_line.max())
-        ax1v.spines['bottom'].set_color("#5998ff")
-        ax1v.spines['top'].set_color("#5998ff")
-        ax1v.spines['left'].set_color("#5998ff")
-        ax1v.spines['right'].set_color("#5998ff")
-        ax1v.tick_params(axis='x', colors='w')
-        ax1v.tick_params(axis='y', colors='w')
-        plt.ylabel('Volume')
-        '''
-
-    def draw2(self, ticker, action):
-        center_idx_color = 'm'
-        if action == -1:
-            center_idx_color = 'g'
-
-
-        self.ax1 = plt.subplot2grid((6,4), (1,0), rowspan=4, colspan=4)#, axisbg='#07000d')
-        #self.ax1.set_facecolor((0, 0, 0))
-
-        #self.ax1.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
-        self.ax1.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
-        self.ax1.grid(True, color='gray')
         '''
         self.ax1.xaxis.set_major_locator(mticker.MaxNLocator(10))
         self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -619,74 +625,6 @@ class Visual:
         plt.subplots_adjust(left=.09, bottom=.14, right=.94, top=.95, wspace=.20, hspace=0)
 
 
-    def jump2next(self):
-
-        #Define display window
-        self.run_idx += 1
-        if self.run_idx >= len(self.tagged_points_list):
-            print('To the last!')
-            self.run_idx = len(self.tagged_points_list) - 1
-
-        self.symbol = self.tagged_points_list[self.run_idx][0]
-        self.data_df = self.data_pool[self.symbol]
-        self.action = int(self.tagged_points_list[self.run_idx][2])
-        if self.tagged_points_list[self.run_idx][1] == '':
-            self.center_idx = 0
-        else:
-            self.center_idx = self.data_df.time_str2idx(self.tagged_points_list[self.run_idx][1], type=2)
-
-        if self.center_idx < 0:
-            self.center_idx = 0
-
-        #if self.candle_stick_data.has_key(self.ticker) == False:
-        #    self.cal_all_data(self.ticker)
-
-        self.cal_all_data(self.symbol)
-
-        if self.center_idx < 0:
-            print("Center day = %d." % self.center_idx)
-            return
-
-        self.__cal_win__()
-
-    def jump2last(self):
-        '''
-        self.center_dates_idx -= 1
-        if self.center_dates_idx < 0:
-            print('To the first!')
-            self.center_dates_idx = 0
-
-        self.center_idx = self.stock.time2idx(self.center_dates[self.center_dates_idx], type=2)
-        if self.center_idx < 0:
-            print("Center day out of the range.")
-            return
-
-        self.__cal_win__()
-        '''
-        #Define display window
-        self.run_idx -= 1
-        if self.run_idx < 0:
-            print('To the first!')
-            self.run_idx = 0
-
-        self.symbol = self.tagged_points_list[self.run_idx][0]
-        self.data_df = self.data_pool[self.symbol]
-        self.action = int(self.tagged_points_list[self.run_idx][2])
-        self.center_idx = self.data_df.time_str2idx(self.tagged_points_list[self.run_idx][1], type=2)
-
-        if self.center_idx < 0:
-            self.center_idx = 0
-
-        #if self.candle_stick_data.has_key(self.ticker) == False:
-        #    self.cal_all_data(self.ticker)
-        self.cal_all_data(self.symbol)
-
-        if self.center_idx < 0:
-            print("Center day = %d." % self.center_idx)
-            return
-
-        self.__cal_win__()
-
 
     def save2files(self):
         time_str = now2str()
@@ -763,9 +701,11 @@ class Visual:
         #self.fig.canvas.mpl_connect('key_press_event', self.on_pick)
         '''
         self.fig, self.ax1 = plt.subplots()
+        self.ax2 = self.ax1.twinx()
         #on_move_id = self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
         #cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
         self.fig.canvas.mpl_connect('key_press_event', self.on_press)
+        cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
 
         #self.tagged_set = set(self.ticker)
         self.cal_all_data(self.symbol)
@@ -773,7 +713,10 @@ class Visual:
         self.run_idx = -1
         #self.jump2next()
         self.draw(self.symbol, self.action)
-        cursor = Cursor(self.ax1, useblit=True, color='c', linewidth=1)
+        cursor = matplotlib.widgets.Cursor(self.ax2, useblit=True, color='c', linewidth=1)
+        #cursor = CrossHairSnap(self.ax2, self.time_line, self.price_line)
+        #cursor = CrossHair(self.ax1)
+        #plt.connect('motion_notify_event', cursor.mouse_move)
         plt.show()
 
         #save to files
@@ -832,10 +775,10 @@ class Visual:
             self.__step_win__(0)
 
         #browse the markers
-        elif key == 'n':
-            self.jump2next()
-        elif key == 'N':
-            self.jump2last()
+        #elif key == 'n':
+        #    self.jump2next()
+        #elif key == 'N':
+        #    self.jump2last()
 
         #Zooming
         elif key == 'up':
@@ -950,6 +893,10 @@ class Visual:
         print('on click')
         print(event.xdata, event.ydata, event.x, event.y)
 
+        if not event.inaxes:
+            return
+
+
         '''
         if (event.xdata):
             time_str = dt2str(mdates.num2date(event.xdata))
@@ -1014,6 +961,7 @@ class Visual:
 def run(symbol):
     start = '2014-01-01'
     data_dict = load_data([symbol], start=start, verbose=True)
+    data_dict = datapro(data_dict)
 
     visual = Visual(data_dict, './', before=240)
     visual.run((symbol, start, 1), [symbol])

@@ -275,3 +275,15 @@ def load_data(symbol_match=[], start='2014-01-01', verbose=True):
     return data_dict
 
 
+def datapro(data_dict):
+    for symbol in data_dict:
+        price_line = data_dict[symbol]['LastPrice'].values
+        volume_line = data_dict[symbol]['Volume'].values
+        for k in range(len(price_line)-2, -1, -1):
+            if np.isnan(price_line[k]):
+                price_line[k] = price_line[k+1]
+            if np.isnan(volume_line[k]):
+                volume_line[k] = volume_line[k+1]
+        data_dict[symbol]['LastPrice'] = price_line
+        data_dict[symbol]['Volume'] = volume_line
+    return data_dict
