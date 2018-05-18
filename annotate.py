@@ -15,6 +15,7 @@ import matplotlib
 import pylab
 import talib
 import sys
+import numba
 
 from matplotlib.transforms import Bbox
 
@@ -337,7 +338,7 @@ class Visual:
 
         return radius, circle_color, circle_alpha
 
-
+    #@numba.jit
     def draw(self, ticker, action):
         center_idx_color = 'm'
         if action == -1:
@@ -346,11 +347,13 @@ class Visual:
         #volume_line = np.nan_to_num(self.volume_line)
         self.ax1.set_ylim(0, 3 * self.volume_line.max())
         ###self.ax1.plot(self.time_line, self.volume_line, 'c', label='Volume', linewidth=1)
-        self.ax1.fill_between(self.time_line, self.volume_line, color='gray', label='Volume', linewidth=1)
+        self.ax1.fill_between(self.x_line, self.volume_line, color='gray', label='Volume', linewidth=1)
 
         #self.ax2.plot(self.time_line, self.price_line, '#ff8000', label='Price', linewidth=1)
-        self.ax2.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
-        self.ax2.plot(self.time_line, self.price_line, 'go')
+        #self.ax2.plot(self.time_line, self.price_line, 'gray', label='Price', linewidth=1)
+        #self.ax2.plot(self.time_line, self.price_line, 'go')
+        self.ax2.plot(self.x_line, self.price_line, 'gray', label='Price', linewidth=1)
+        self.ax2.plot(self.x_line, self.price_line, 'go')
         #self.ax2.scatter(self.time_line, self.price_line, s=10, c='gray', alpha=0.5)
         self.ax2.grid(True, color='gray')
 
@@ -702,10 +705,10 @@ class Visual:
         '''
         self.fig, self.ax1 = plt.subplots()
         self.ax2 = self.ax1.twinx()
-        #on_move_id = self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
-        #cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
-        self.fig.canvas.mpl_connect('key_press_event', self.on_press)
+        self.time_txt = self.ax2.text(0.9, 0.9, '', transform=self.ax2.transAxes)
+        self.fig.canvas.mpl_connect('key_release_event', self.on_press)
         cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
+        #on_move_id = self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         #self.tagged_set = set(self.ticker)
         self.cal_all_data(self.symbol)
@@ -723,7 +726,13 @@ class Visual:
         self.save2files()
         print ('Game over!')
 
-    def key_process(self, key):
+    def key_process(self, event):
+        key = event.key
+        x = int(round(event.xdata))
+        if key == '1':
+            print(key, x, self.price_line[x])
+            return
+
         #show/hide the vertical line
         if key == 'h':
             self.hide_center_day = 1 - self.hide_center_day
@@ -815,16 +824,6 @@ class Visual:
             elif undo >= '0' and undo <= '9':
                 self.mark_list[int(undo)].pop()
 
-        #bottom
-        elif key == '1':
-            row = OrderedDict()
-            row['ticker'] = self.symbol
-            row['start'] = self.left_time
-            row['end'] = self.right_time
-            row['tag'] = 1
-            self.htf_list.append(row)
-            print('ticker: %s, start: %s, end: %s, tag: %d\n' % (row['ticker'], row['start'], row['end'], row['tag']))
-
         #top
         elif key == '6':
             row = OrderedDict()
@@ -889,6 +888,7 @@ class Visual:
         #positive and negative training set
 
     #mouse click event
+    @numba.jit
     def on_click(self, event):
         print('on click')
         print(event.xdata, event.ydata, event.x, event.y)
@@ -896,6 +896,13 @@ class Visual:
         if not event.inaxes:
             return
 
+        plt.gcf().clear()
+        self.draw(self.symbol, self.action)
+        self.ax1.axvline(event.xdata, ymax=(self.ax2.axis())[-1], color='y', alpha=0.5)
+        plt.draw()
+        plt.show()
+
+        #self.draw(self.symbol, self.action)
 
         '''
         if (event.xdata):
@@ -911,7 +918,12 @@ class Visual:
             plt.draw()
         '''
 
+    @numba.jit
     def on_move(self, event):
+        if not event.inaxes:
+            return
+        #self.ax2.
+        #self.time_txt.set_text('%s' % (self.time_line[int(round(event.xdata))].__str__()[:16]))
         #print('on move')
         #print(event.xdata, event.ydata, event.x, event.y)
         '''
@@ -930,18 +942,21 @@ class Visual:
             #self.ax2.axvline(event.xdata, ymax=(self.ax2.axis())[-1], color = 'y', alpha=0.5)
 
         #self.draw(self.symbol, self.action)
-        self.ax1.axvline(event.xdata, ymax=(self.ax1.axis())[-1], color = 'y', alpha=0.5)
+        #self.ax1.axvline(event.xdata, ymax=(self.ax2.axis())[-1], color='y', alpha=0.5)
 
         plt.draw()
 
     #Check keyboard event
     def on_press(self, event):
+        if not event.inaxes:
+            return
+
         print('press', event.key)
         sys.stdout.flush()
         plt.clf()
 
-        self.key_process(event.key)
-        self.draw(self.symbol, self.action)
+        self.key_process(event)
+        #self.draw(self.symbol, self.action)
         plt.draw()
 
     #Check keyboard event
