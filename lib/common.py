@@ -26,6 +26,20 @@ matplotlib.rcParams.update({'font.size': 9})
 
 data_dir = './'
 
+color_dict = {
+    0: 'gray',
+    1: 'r', #buy
+    2: 'g', #sell
+    3: '#ff028d', #short
+    4: '#9a0eea', #cover
+    5: 'orange', #up trend
+    6: '#069af3', #down trend
+}
+
+def tag2color(tag_line, tag_colors, start, end):
+    for k in range(start, end+1):
+        tag_colors[k] = color_dict[tag_line[k]]
+
 def dt2str(dt, format="%Y-%m-%d_%H:%M:%S"):
     return dt.strftime(format)
 
