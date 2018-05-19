@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
+import numba
 
 from lib.common import *
 
@@ -23,6 +24,7 @@ def save_tag(tag_dir, symbol):
     print('Save to {}'.format(tag_file))
     save2pjson(list(tag_line), tag_file)
 
+@numba.jit
 def draw():
     global win_start, win_end, symbol
     tag2color(tag_line, tag_colors, win_start, win_end)
@@ -56,6 +58,7 @@ def draw():
     #fig.canvas.draw()
     plt.draw()
 
+@numba.jit
 def step_win(step):
     global win_start, win_end
 
