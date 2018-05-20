@@ -238,7 +238,7 @@ def avg_downsample(df_origin, avg_period=120):
     return df_origin
 
 
-def load_data(symbol_match=[], start='2014-01-01', verbose=True):
+def load_data(symbol_match=[], start='2014-01-01', pre_tick_offset=20000, avg_period=120, verbose=True):
     with open('future_active_symbol_span_5.json') as data_file:
         active_file_info = json.load(data_file)
 
@@ -259,7 +259,7 @@ def load_data(symbol_match=[], start='2014-01-01', verbose=True):
         tmp_df = load_files(symbol_files_dict[symbol], active_info=active_file_info[symbol],
                             start=start,
                             end=dt.date.today().strftime('%Y-%m-%d'),
-                            pre_tick_offset=20000,
+                            pre_tick_offset=pre_tick_offset,
                             verbose=verbose)
 
         if tmp_df.empty:
@@ -279,7 +279,7 @@ def load_data(symbol_match=[], start='2014-01-01', verbose=True):
             del_list.append(symbol)
             continue
 
-        tmp_df = avg_downsample(tmp_df)
+        tmp_df = avg_downsample(tmp_df, avg_period=avg_period)
         data_dict[symbol] = tmp_df
 
     if not data_dict:
