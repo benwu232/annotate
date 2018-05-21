@@ -34,6 +34,7 @@ color_dict = {
     4: '#9a0eea', #cover
     5: 'orange', #up trend
     6: '#069af3', #down trend
+    7: 'w' #to be define
 }
 
 def tag2color(tag_line, tag_colors, start, end):

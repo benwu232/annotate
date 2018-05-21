@@ -34,7 +34,7 @@ def draw():
     #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', label='Price', linewidth=1)
     line = ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', linewidth=1)
     #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], color='gray', marker='o', linewidth=1)
-    scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], c=tag_colors[win_start:win_end+1], s=30)
+    scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], c=tag_colors[win_start:win_end+1], s=50)
     plt.title(symbol, color='w')
     ax2.grid(True, color='w')
     #ax1.tick_params(axis='x', colors='w')
@@ -81,14 +81,31 @@ def set_tag(x, y):
     print('Set ({}, {})'.format(x, y))
     tag_line[x] = y
 
+def set_tags(x_start, x_end, y):
+    global tag_line, is_multi_tag, multi_tag_start
+    if is_multi_tag:
+        print('Multi tag end at {}'.format(x_end))
+        print('Set x[{}:{}] to {}'.format(x_start, x_end, y))
+        tag_line[x_start:x_end+1] = y
 
 def on_press(event):
-    global symbol, win_start, win_end
-    print('press', event.key)
+    global symbol, win_start, win_end, is_multi_tag, multi_tag_start
+    print('\npress', event.key)
     sys.stdout.flush()
 
     if event.key in ['0', '1', '2', '3', '4', '5', '6']:
-        set_tag(int(event.xdata), int(round(float(event.key))))
+        if is_multi_tag:
+            set_tags(x_start=multi_tag_start, x_end=int(round(event.xdata)), y=int(event.key))
+            is_multi_tag = False
+        else:
+            set_tag(int(round(event.xdata)), int(event.key))
+        draw()
+
+    elif event.key == '[':
+        multi_tag_start = int(round(event.xdata))
+        set_tag(multi_tag_start, 7)
+        print('Multi tag start at {}'.format(multi_tag_start))
+        is_multi_tag = True
         draw()
 
     elif event.key == 'c':
@@ -136,9 +153,9 @@ def on_click(event):
     elif win_end >= seq_len:
         win_end = seq_len - 1
 
-    margin = int((win_end - win_start) * 0.05)
-    win_start += margin
-    win_end -= margin
+    #margin = int((win_end - win_start) * 0.05)
+    #win_start += margin
+    #win_end -= margin
 
     draw()
 
@@ -168,6 +185,8 @@ else:
 tag_colors = ['' for _ in range(seq_len)]
 win_start = 0
 win_end = 50
+is_multi_tag = False
+multi_tag_start = 0
 
 
 fig, ax2 = plt.subplots(facecolor='#07000d')
