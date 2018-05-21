@@ -40,16 +40,15 @@ def draw():
     #scatter.set_offsets(np.c_[x_line[win_start:win_end+1], price_line[win_start:win_end+1]])
     #scatter.set_sizes(np.ones_like(price_line) * 50)
 
-    plt.title(symbol, color='w')
-    ax2.grid(True, color='w')
-    #ax1.tick_params(axis='x', colors='w')
-    ax1.tick_params(axis='y', colors='w')
+    plt.title(symbol)
+    ax2.grid(True)
     ax1.spines['bottom'].set_color("#5998ff")
     ax1.spines['top'].set_color("#5998ff")
     ax1.spines['left'].set_color("#5998ff")
     ax1.spines['right'].set_color("#5998ff")
-    ax2.tick_params(axis='x', colors='w')
-    ax2.tick_params(axis='y', colors='w')
+    #ax1.tick_params(axis='y')
+    #ax2.tick_params(axis='x')
+    #ax2.tick_params(axis='y')
 
     ax1.set_xlim(win_start, win_end)
     ax2.set_xlim(win_start, win_end)
@@ -146,12 +145,12 @@ def on_press(event):
     elif event.key == 'i':
         get_info(event)
 
-    elif event.key == 'm':
-        get_ratio()
-
     elif event.key == 'h':
         print('0-unknown, 1-buy, 2-sell, 3-short, 4-cover, 5-up, 6-down')
-        #print('0-gray, 1-red, 2-green, 3-m, 4-cover, 5-up, 6-down')
+        print('c-save, i-information, [-multi-tag start')
+        print('left-window left 1 step, right-window right 1 step')
+        print('ctrl+left-window left 1/4, ctrl+right-window right 1/4')
+        print('scroll up - zoom out, scroll down - zoom in')
 
     elif event.key == 'left':
         step_draw(-1)
@@ -277,7 +276,7 @@ win_start = minute_span - 30
 win_end = minute_span + 30
 time_text = ''
 
-
+plt.style.use('dark_background')
 fig, ax2 = plt.subplots(facecolor='#07000d')
 ax1 = ax2.twinx()
 ax2.set_facecolor('#07000d')
