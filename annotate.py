@@ -28,13 +28,13 @@ def draw():
     tag2color(tag_line, tag_colors, win_start, win_end)
     ax1.clear()
     ax2.clear()
-    fb = ax2.fill_between(x_line[win_start:win_end+1], volume_line[win_start:win_end+1], color='gray', linewidth=1)
+    ax2.fill_between(x_line[win_start:win_end+1], volume_line[win_start:win_end+1], color='gray', linewidth=1, alpha=0.5)
     ax2.set_ylim(0, 4 * volume_line[win_start:win_end+1].max())
 
     #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', label='Price', linewidth=1)
-    line = ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', linewidth=1)
+    ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', linewidth=1)
     #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], color='gray', marker='o', linewidth=1)
-    scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], c=tag_colors[win_start:win_end+1], s=50)
+    ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], c=tag_colors[win_start:win_end+1], s=50)
     ax1.axvline(minute_span, ymax=(ax1.axis())[-1], color='green', alpha=0.5)
     #scatter.set_edgecolors(tag_colors[win_start:win_end+1])
     #scatter.set_offsets(np.c_[x_line[win_start:win_end+1], price_line[win_start:win_end+1]])
@@ -98,6 +98,23 @@ def set_tags(x_start, x_end, y):
         print('Set x[{}:{}] to {}'.format(x_start, x_end, y))
         tag_line[x_start:x_end+1] = y
 
+def get_ratio():
+    global win_start, win_end, price_line
+    ratio = price_line[win_start:win_end+1].max() / price_line[win_start:win_end+1].min()
+    ratio_str = 'max / min = {}'.format(ratio)
+    return ratio_str
+
+def gen_formated_time_str(time_str):
+    formated_str = '{} {}'.format(time_str[:10], time_str[11:])
+    return formated_str
+
+def get_info(event):
+    x_int = int(round(event.xdata))
+    time_str = (time_str_line[x_int])
+    print('Current: {},    {} {},     {}'.format(x_int, time_str[:10], time_str[11:], price_line[x_int]))
+    print('Time range {} - {}'.format(gen_formated_time_str(time_str_line[win_start]), gen_formated_time_str(time_str_line[win_end])))
+    print('Price range {} - {}, {}'.format(price_line[win_start:win_end+1].min(), price_line[win_start:win_end+1].max(), get_ratio()))
+
 def on_press(event):
     global symbol, win_start, win_end, is_multi_tag, multi_tag_start
     print('\npress', event.key)
@@ -126,23 +143,33 @@ def on_press(event):
         time_str = (time_str_line[x_int])
         print('{} ===>> {} {}'.format(x_int, time_str[:10], time_str[11:]))
 
+    elif event.key == 'i':
+        get_info(event)
+
+    elif event.key == 'm':
+        get_ratio()
+
     elif event.key == 'h':
         print('0-unknown, 1-buy, 2-sell, 3-short, 4-cover, 5-up, 6-down')
         #print('0-gray, 1-red, 2-green, 3-m, 4-cover, 5-up, 6-down')
 
     elif event.key == 'left':
         step_draw(-1)
+        get_ratio()
 
     elif event.key == 'right':
         step_draw(1)
+        get_ratio()
 
     elif event.key == 'ctrl+left':
         step = (win_end - win_start) // 4
         step_draw(-step)
+        get_ratio()
 
     elif event.key == 'ctrl+right':
         step = (win_end - win_start) // 4
         step_draw(step)
+        get_ratio()
 
 
 def on_click(event):
@@ -150,9 +177,9 @@ def on_click(event):
     if not event.inaxes:
         return
 
-    print(ax1.get_xlim())
-    print('on click')
-    print(event.xdata, event.ydata, event.x, event.y)
+    #print(ax1.get_xlim())
+    print('\non click')
+    #print(event.xdata, event.ydata, event.x, event.y)
 
     win_left, win_right = ax1.get_xlim()
     win_start = int(win_left + 1)
@@ -173,8 +200,52 @@ def on_click(event):
     #win_end -= margin
 
     draw()
+    get_info(event)
 
-    return
+def on_scroll(event):
+    global win_start, win_end, seq_len
+    zoom_rate = 1.1
+    if not event.inaxes:
+        return
+
+    #print(ax1.get_xlim())
+    print('\non scroll')
+    #print(event.xdata, event.ydata, event.x, event.y)
+
+    win_left, win_right = ax1.get_xlim()
+    cursor_x = int(round(event.xdata))
+    dif_left = cursor_x - int(round(win_left))
+    dif_right = int(round(win_right)) - cursor_x
+
+    if event.button == 'up':
+        dif_left = int(dif_left // zoom_rate)
+        dif_right = int(dif_right // zoom_rate)
+        win_start = cursor_x - dif_left
+        win_end = cursor_x + dif_right
+
+    elif event.button == 'down':
+        dif_left = int(dif_left * zoom_rate)
+        dif_right = int(dif_right * zoom_rate)
+        win_start = cursor_x - dif_left
+        win_end = cursor_x + dif_right
+
+    if win_start < 0:
+        win_start = 0
+    elif win_start >= seq_len:
+        win_start = seq_len - 1
+
+    if win_end < 0:
+        win_end = 0
+    elif win_end >= seq_len:
+        win_end = seq_len - 1
+
+    #margin = int((win_end - win_start) * 0.05)
+    #win_start += margin
+    #win_end -= margin
+
+    draw()
+    get_info(event)
+
 
 
 ######################################################################
@@ -214,6 +285,7 @@ ax2.set_facecolor('#07000d')
 
 fig.canvas.mpl_connect('key_press_event', on_press)
 cid = fig.canvas.mpl_connect('button_release_event', on_click)
+fig.canvas.mpl_connect('scroll_event', on_scroll)
 #cursor = Cursor(ax1, useblit=True, color='#9ffeb0', linewidth=1)
 cursor = Cursor(ax1, useblit=True, color='cyan', linewidth=1)
 #cursor = Cursor(ax1)
