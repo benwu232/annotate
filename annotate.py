@@ -24,7 +24,7 @@ def save_tag(tag_dir, symbol):
     save2pjson(list(tag_line), tag_file)
 
 def draw():
-    global win_start, win_end, symbol
+    global win_start, win_end, symbol, minute_span
     tag2color(tag_line, tag_colors, win_start, win_end)
     ax1.clear()
     ax2.clear()
@@ -35,6 +35,11 @@ def draw():
     line = ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', linewidth=1)
     #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], color='gray', marker='o', linewidth=1)
     scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], c=tag_colors[win_start:win_end+1], s=50)
+    ax1.axvline(minute_span, ymax=(ax1.axis())[-1], color='green', alpha=0.5)
+    #scatter.set_edgecolors(tag_colors[win_start:win_end+1])
+    #scatter.set_offsets(np.c_[x_line[win_start:win_end+1], price_line[win_start:win_end+1]])
+    #scatter.set_sizes(np.ones_like(price_line) * 50)
+
     plt.title(symbol, color='w')
     ax2.grid(True, color='w')
     #ax1.tick_params(axis='x', colors='w')
@@ -48,6 +53,11 @@ def draw():
 
     ax1.set_xlim(win_start, win_end)
     ax2.set_xlim(win_start, win_end)
+    #ax2.text(0.9, 0.98,  time_text,
+    #                    fontsize=10, alpha=1.0,
+    #                    horizontalalignment='left',
+    #                    verticalalignment='top',
+    #                    transform=ax2.transAxes, color='y')
 
     #ax1.yaxis.label.set_color("w")
     #ax1.xaxis.label.set_color("w")
@@ -111,6 +121,11 @@ def on_press(event):
     elif event.key == 'c':
         save_tag(tag_dir, symbol)
 
+    elif event.key == 't':
+        x_int = int(round(event.xdata))
+        time_str = (time_str_line[x_int])
+        print('{} ===>> {} {}'.format(x_int, time_str[:10], time_str[11:]))
+
     elif event.key == 'h':
         print('0-unknown, 1-buy, 2-sell, 3-short, 4-cover, 5-up, 6-down')
         #print('0-gray, 1-red, 2-green, 3-m, 4-cover, 5-up, 6-down')
@@ -165,11 +180,15 @@ def on_click(event):
 ######################################################################
 args = sys.argv[1:]
 symbol = args[0]
-data_dict = load_data([symbol], start='2014-01-01', verbose=True)
+pre_tick_offset = 192000
+avg_period = 120
+minute_span = pre_tick_offset // avg_period
+data_dict = load_data([symbol], start='2014-01-01', pre_tick_offset=pre_tick_offset, avg_period=avg_period, verbose=True)
 data_dict = datapro(data_dict)
 data_df = data_dict[symbol]
 
-time_line = pd.to_datetime(data_df.index//2, unit='s').values
+time_line = pd.to_datetime(data_df.index//2+8*3600, unit='s').values
+time_str_line = [str(item)[:16] for item in time_line]
 x_line = list(range(len(time_line)))
 price_line = data_df['LastPrice'].values
 #price_line = np.nan_to_num(price_line)
@@ -183,15 +202,15 @@ if os.path.isfile(tag_file):
 else:
     tag_line = np.zeros_like(price_line, dtype=np.int8)
 tag_colors = ['' for _ in range(seq_len)]
-win_start = 0
-win_end = 50
-is_multi_tag = False
-multi_tag_start = 0
+win_start = minute_span - 30
+win_end = minute_span + 30
+time_text = ''
 
 
 fig, ax2 = plt.subplots(facecolor='#07000d')
 ax1 = ax2.twinx()
 ax2.set_facecolor('#07000d')
+#scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], s=50)
 
 fig.canvas.mpl_connect('key_press_event', on_press)
 cid = fig.canvas.mpl_connect('button_release_event', on_click)
