@@ -40,12 +40,9 @@ def draw():
     #scatter.set_offsets(np.c_[x_line[win_start:win_end+1], price_line[win_start:win_end+1]])
     #scatter.set_sizes(np.ones_like(price_line) * 50)
 
-    plt.title(symbol)
+    plt.title(title_str)
     ax2.grid(True)
-    ax1.spines['bottom'].set_color("#5998ff")
-    ax1.spines['top'].set_color("#5998ff")
-    ax1.spines['left'].set_color("#5998ff")
-    ax1.spines['right'].set_color("#5998ff")
+
     #ax1.tick_params(axis='y')
     #ax2.tick_params(axis='x')
     #ax2.tick_params(axis='y')
@@ -172,13 +169,16 @@ def on_press(event):
 
 
 def on_click(event):
-    global win_start, win_end, seq_len
+    global win_start, win_end, seq_len, title_str
     if not event.inaxes:
         return
 
     #print(ax1.get_xlim())
     print('\non click')
     #print(event.xdata, event.ydata, event.x, event.y)
+    x_int = int(round(event.xdata))
+    time_str = (time_str_line[x_int])
+    title_str = '{}    {}'.format(symbol, gen_formated_time_str(time_str))
 
     win_left, win_right = ax1.get_xlim()
     win_start = int(win_left + 1)
@@ -274,13 +274,18 @@ else:
 tag_colors = ['' for _ in range(seq_len)]
 win_start = minute_span - 30
 win_end = minute_span + 30
-time_text = ''
+title_str = symbol
 
 plt.style.use('dark_background')
 fig, ax2 = plt.subplots(facecolor='#07000d')
 ax1 = ax2.twinx()
 ax2.set_facecolor('#07000d')
+plt.title(symbol)
 #scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], s=50)
+ax1.spines['bottom'].set_color("#5998ff")
+ax1.spines['top'].set_color("#5998ff")
+ax1.spines['left'].set_color("#5998ff")
+ax1.spines['right'].set_color("#5998ff")
 
 fig.canvas.mpl_connect('key_press_event', on_press)
 cid = fig.canvas.mpl_connect('button_release_event', on_click)
