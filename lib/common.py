@@ -245,9 +245,8 @@ def avg_downsample(df_origin, avg_period=120):
     return df_origin
 
 def sel_active_futures(futures_dict, active_distance_rate_min=1.2, active_variation_min=8000,
-                       active_span_size=30, day_pre_offset=20):
+                       active_span_size=30, day_pre_offset=20, avg_factor=5):
     del_list = []
-    avg_factor = 5
     momentum = 1 - 1/avg_factor
     print('Analyzing and selecting active futures ...')
     for symbol in futures_dict:
