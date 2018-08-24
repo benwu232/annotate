@@ -4,6 +4,7 @@ import os, sys
 import urllib.request, urllib.error, urllib.parse
 import time
 import datetime
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -141,8 +142,8 @@ def get_symbol_files_dict(symbol_match=[], symbol_list=[], path_in='', start='20
     #exit()
     return symbol_files_dict
 
-def load_files(file_list, active_info=[], start='2014-08-1', end='', pre_tick_offset=10000, verbose=False):
-    start_idx = -1
+def load_files(data_dir, file_list, active_info=[], start='2014-08-1', end='', pre_offset=10000, verbose=False):
+    start_idx = active_info[1]
     last_break = False
     df_data_right = pd.DataFrame()
     df_data_left = pd.DataFrame()
@@ -155,30 +156,34 @@ def load_files(file_list, active_info=[], start='2014-08-1', end='', pre_tick_of
         active_start = start_dt
         active_end = end_dt
     else:
-        active_start = dt.datetime.strptime(active_info[1], "%Y%m%d")
-        active_end = dt.datetime.strptime(active_info[-1], "%Y%m%d")
+        active_start = os.path.basename(file_list[active_info[1]]).split('_')[-1][:8]
+        active_start = dt.datetime.strptime(active_start, "%Y%m%d")
+        active_end = os.path.basename(file_list[active_info[-1]]).split('_')[-1][:8]
+        active_end = dt.datetime.strptime(active_end, "%Y%m%d")
     start_dt = max(start_dt, active_start)
     end_dt = min(end_dt, active_end)
 
     if start_dt >= end_dt:
         return df_data_right
 
+    #change file path
+
+
     #Load data from start to end
-    for k, f in enumerate(file_list):
-        base_name = os.path.basename(f)
-        split = re.split('_', base_name)
-        split[1] = re.sub('-', '', split[1])
-        file_date_str = split[1][:8]
+    for k in range(active_info[1], active_info[-1]):
+        base_name = os.path.basename(file_list[k])
+        file_date_str = base_name.split('_')[-1][:8]
         file_date_dt = dt.datetime.strptime(file_date_str, "%Y%m%d")
         if file_date_dt < start_dt:
             start_idx = k
             continue
         elif file_date_dt > end_dt:
             break
+        real_file_path = os.path.join(data_dir, base_name)
 
         if verbose:
-            print('Loading {} ...'.format(f))
-        df_tmp = pd.read_csv(f, encoding='GB2312', dtype={col: np.float32 for col in ['LastPrice', 'Volume', 'BidPrice1', 'BidVolume1', 'AskPrice1', 'AskVolume1', 'OpenInterest']})
+            print('Loading {} ...'.format(real_file_path))
+        df_tmp = pd.read_csv(real_file_path, encoding='GB2312', dtype={col: np.float32 for col in ['LastPrice', 'Volume', 'BidPrice1', 'BidVolume1', 'AskPrice1', 'AskVolume1', 'OpenInterest']})
         if len(df_tmp) == 0:
             last_break = True
             continue
@@ -198,17 +203,18 @@ def load_files(file_list, active_info=[], start='2014-08-1', end='', pre_tick_of
         df_data_right = df_data_right.append(df_tmp, ignore_index=True)
 
     #Load pre_offset symbols
-    if start_idx < 0:
-        return None
+    #if start_idx < 0:
+    #    return None
 
-    for k in range(start_idx, -1, -1):
-        f = file_list[k]
+    for k in range(start_idx-1, -1, -1):
+        base_name = os.path.basename(file_list[k])
+        real_file_path = os.path.join(data_dir, base_name)
         if verbose:
-            print('Loading {} ...'.format(f))
-        df_tmp = pd.read_csv(f, encoding='GB2312', dtype={col: np.float32 for col in ['LastPrice', 'Volume', 'BidPrice1', 'BidVolume1', 'AskPrice1', 'AskVolume1', 'OpenInterest']})
+            print('Loading {} ...'.format(real_file_path))
+        df_tmp = pd.read_csv(real_file_path, encoding='GB2312', dtype={col: np.float32 for col in ['LastPrice', 'Volume', 'BidPrice1', 'BidVolume1', 'AskPrice1', 'AskVolume1', 'OpenInterest']})
         if len(df_tmp) == 0:
             if len(df_data_left) > 0:
-                df_data_left.set_value(0, 'Break', 10000.0)
+                df_data_left.at[0, 'Break'] = 10000.0
             continue
 
         df_start = dt.datetime.fromtimestamp(df_tmp.loc[0]['Timestamp'])
@@ -218,9 +224,9 @@ def load_files(file_list, active_info=[], start='2014-08-1', end='', pre_tick_of
         df_tmp['Break'] = pd.Series(preset_data, index=df_tmp.index)
         df_data_left = df_tmp.append(df_data_left, ignore_index=True)
 
-        if len(df_data_left) > pre_tick_offset:
+        if len(df_data_left) > pre_offset:
             break
-    df_data_left = df_data_left[-pre_tick_offset:]
+    df_data_left = df_data_left[-pre_offset:]
 
     #Concatenate them
     df_data = df_data_left.append(df_data_right)
@@ -238,8 +244,92 @@ def avg_downsample(df_origin, avg_period=120):
     df_origin = df_origin.loc[::df_down_sample_factor]
     return df_origin
 
+def sel_active_futures(futures_dict, active_distance_rate_min=1.2, active_variation_min=8000,
+                       active_span_size=30, day_pre_offset=20):
+    del_list = []
+    avg_factor = 5
+    momentum = 1 - 1/avg_factor
+    print('Analyzing and selecting active futures ...')
+    for symbol in futures_dict:
+        variation_num_avg = 0
+        activity_rate_avg = 0
+        active_start = -1
+        active_end = -1
+        for k, (symbol_file, variation_num, activity_rate) in enumerate(zip(futures_dict[symbol]['files'], futures_dict[symbol]['variation'], futures_dict[symbol]['active_distance_rate'])):
+            variation_num_avg = variation_num_avg * momentum + variation_num * (1 - momentum)
+            activity_rate_avg = activity_rate_avg * momentum + activity_rate * (1 - momentum)
+            if variation_num_avg >= active_variation_min and activity_rate_avg >= active_distance_rate_min:
+                if active_start < 0:
+                    active_start = k - avg_factor
+            else:
+                if active_end < 0 and active_start >= 0:
+                    active_end = k - avg_factor
+                    break
 
-def load_data(symbol_match=[], start='2014-01-01', pre_tick_offset=20000, avg_period=120, verbose=True):
+        #if no active span or active span is too short
+        if active_start < 0 or active_end < 0 or active_end - active_start < active_span_size:
+            del_list.append(symbol)
+        else:
+            pre = max(0, active_start - day_pre_offset)
+            futures_dict[symbol]['active_span'] = [pre, active_start, active_end]
+
+    #delete bad symbols
+    for symbol in del_list:
+        futures_dict.pop(symbol, None)
+
+    return futures_dict
+
+
+def load_futures_data(data_dir, futures_dict, symbol_match=None, start='2014-01-01', end='', pre_offset=4096, verbose=True):
+    data_dict = {}
+    del_list = []
+    if end == '':
+        end=dt.date.today().strftime('%Y-%m-%d'),
+
+    symbol_list = []
+    if type(symbol_match) is str:
+        for sym in futures_dict.keys():
+            if symbol_match in sym:
+                symbol_list.append(sym)
+
+    for symbol in symbol_list:
+        print('Loading {}'.format(symbol))
+        tmp_df = load_files(data_dir,
+                            futures_dict[symbol]['files'],
+                            active_info=futures_dict[symbol]['active_span'],
+                            start=start,
+                            end=end,
+                            pre_offset=pre_offset,
+                            verbose=verbose)
+
+        if tmp_df.empty:
+            del_list.append(symbol)
+            continue
+
+        active_start_time = futures_dict[symbol]['files'][futures_dict[symbol]['active_span'][1]]
+        active_start_time = active_start_time.split('_')[-1][:8]
+        active_start_ts = str2ts(active_start_time, '00:00:00', format='%Y%m%dT%H:%M:%S')
+
+        tmp_df['Timestamp'] = (tmp_df['Timestamp']).astype(int)
+        tmp_df.set_index('Timestamp', inplace=True)
+        df_idx = tmp_df.index
+
+        if active_start_ts < df_idx[0] or active_start_ts > df_idx[-1]:
+            print('Wrong: {}, {}, {}, will delete'.format(df_idx[0], active_start_ts, df_idx[-1]))
+            del_list.append(symbol)
+            continue
+
+        data_dict[symbol] = tmp_df
+
+    if not data_dict:
+        print('Empty data_df, quit.')
+        #exit()
+
+    return data_dict
+
+
+
+def load_data1(symbol_match=[], start='2014-01-01', pre_tick_offset=20000, avg_period=120, verbose=True):
     with open('future_active_symbol_span_5.json') as data_file:
         active_file_info = json.load(data_file)
 
@@ -260,7 +350,7 @@ def load_data(symbol_match=[], start='2014-01-01', pre_tick_offset=20000, avg_pe
         tmp_df = load_files(symbol_files_dict[symbol], active_info=active_file_info[symbol],
                             start=start,
                             end=dt.date.today().strftime('%Y-%m-%d'),
-                            pre_tick_offset=pre_tick_offset,
+                            pre_offset=pre_tick_offset,
                             verbose=verbose)
 
         if tmp_df.empty:

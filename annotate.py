@@ -24,7 +24,7 @@ def save_tag(tag_dir, symbol):
     save2pjson(list(tag_line), tag_file)
 
 def draw():
-    global win_start, win_end, symbol, minute_span
+    global win_start, win_end, symbol_match, minute_span
     tag2color(tag_line, tag_colors, win_start, win_end)
     ax1.clear()
     ax2.clear()
@@ -112,7 +112,7 @@ def get_info(event):
     print('Price range {} - {}, {}'.format(price_line[win_start:win_end+1].min(), price_line[win_start:win_end+1].max(), get_ratio()))
 
 def on_press(event):
-    global symbol, win_start, win_end, is_multi_tag, multi_tag_start
+    global symbol_match, win_start, win_end, is_multi_tag, multi_tag_start
     print('\npress', event.key)
     sys.stdout.flush()
 
@@ -132,7 +132,7 @@ def on_press(event):
         draw()
 
     elif event.key == 'c':
-        save_tag(tag_dir, symbol)
+        save_tag(tag_dir, symbol_match)
 
     elif event.key == 't':
         x_int = int(round(event.xdata))
@@ -178,7 +178,7 @@ def on_click(event):
     #print(event.xdata, event.ydata, event.x, event.y)
     x_int = int(round(event.xdata))
     time_str = (time_str_line[x_int])
-    title_str = '{}    {}'.format(symbol, gen_formated_time_str(time_str))
+    title_str = '{}    {}'.format(symbol_match, gen_formated_time_str(time_str))
 
     win_left, win_right = ax1.get_xlim()
     win_start = int(win_left + 1)
@@ -249,15 +249,22 @@ def on_scroll(event):
 
 ######################################################################
 args = sys.argv[1:]
-symbol = args[0]
-pre_tick_offset = 192000
-avg_period = 120
-minute_span = pre_tick_offset // avg_period
-data_dict = load_data([symbol], start='2014-01-01', pre_tick_offset=pre_tick_offset, avg_period=avg_period, verbose=True)
+symbol_match = args[0]
+pre_offset = 4096
+avg_period = 1
+minute_span = pre_offset // avg_period
+info_file = '/home/wb/work/qute/data/ini/futures_dict.pkl'
+data_dir = '/home/wb/work/data/futures_data/'
+with open(info_file, 'rb') as f:
+    futures_info = pickle.load(f)
+futures_dict = sel_active_futures(futures_info, active_distance_rate_min=2.0, active_variation_min=4000, active_span_size=10, day_pre_offset=15)
+data_dict = load_futures_data(data_dir, futures_dict, symbol_match, start='2014-01-01', end='2015-06-01', pre_offset=pre_offset, verbose=True)
+#data_dict = load_futures_data([symbol], start='2014-01-01', pre_tick_offset=pre_tick_offset, avg_period=avg_period, verbose=True)
 data_dict = datapro(data_dict)
-data_df = data_dict[symbol]
+data_df = data_dict[symbol_match]
 
-time_line = pd.to_datetime(data_df.index//2+8*3600, unit='s').values
+#time_line = pd.to_datetime(data_df.index//2+8*3600, unit='s').values
+time_line = pd.to_datetime(data_df.index+8*3600, unit='s').values
 time_str_line = [str(item)[:16] for item in time_line]
 x_line = list(range(len(time_line)))
 price_line = data_df['LastPrice'].values
@@ -265,7 +272,7 @@ price_line = data_df['LastPrice'].values
 volume_line = data_df['Volume'].values
 #volume_line = np.nan_to_num(volume_line)
 seq_len = len(price_line)
-tag_file = os.path.join(tag_dir, symbol) + '.tag'
+tag_file = os.path.join(tag_dir, symbol_match) + '.tag'
 if os.path.isfile(tag_file):
     with open(tag_file) as fp:
         tag_line = np.asarray(json.load(fp), dtype=np.int8)
@@ -274,13 +281,13 @@ else:
 tag_colors = ['' for _ in range(seq_len)]
 win_start = minute_span - 30
 win_end = minute_span + 30
-title_str = symbol
+title_str = symbol_match
 
 plt.style.use('dark_background')
 fig, ax2 = plt.subplots(facecolor='#07000d')
 ax1 = ax2.twinx()
 ax2.set_facecolor('#07000d')
-plt.title(symbol)
+plt.title(symbol_match)
 #scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], s=50)
 ax1.spines['bottom'].set_color("#5998ff")
 ax1.spines['top'].set_color("#5998ff")
@@ -297,5 +304,5 @@ cursor = Cursor(ax1, useblit=True, color='cyan', linewidth=1)
 
 draw()
 plt.show()
-save_tag(tag_dir, symbol)
+save_tag(tag_dir, symbol_match)
 
