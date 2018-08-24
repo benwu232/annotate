@@ -38,9 +38,9 @@ color_dict = {
     7: 'w' #to be define
 }
 
-def tag2color(tag_line, tag_colors, start, end):
+def label2color(label_line, label_colors, start, end):
     for k in range(start, end+1):
-        tag_colors[k] = color_dict[tag_line[k]]
+        label_colors[k] = color_dict[label_line[k]]
 
 def dt2str(dt, format="%Y-%m-%d_%H:%M:%S"):
     return dt.strftime(format)
