@@ -327,58 +327,6 @@ def load_futures_data(data_dir, futures_dict, symbol_match=None, start='2014-01-
     return data_dict
 
 
-
-def load_data1(symbol_match=[], start='2014-01-01', pre_tick_offset=20000, avg_period=120, verbose=True):
-    with open('future_active_symbol_span_5.json') as data_file:
-        active_file_info = json.load(data_file)
-
-    start1 = start[:4] + start[5:7]
-    symbol_files_dict = get_symbol_files_dict(symbol_match=symbol_match,
-                                              symbol_list=active_file_info.keys(),
-                                              path_in='./data',
-                                              start=start1,
-                                              verbose=verbose)
-    data_dict = {}
-    del_list = []
-    for symbol in symbol_files_dict:
-        if symbol not in active_file_info:
-            del_list.append(symbol)
-            continue
-
-        print('Loading {}'.format(symbol))
-        tmp_df = load_files(symbol_files_dict[symbol], active_info=active_file_info[symbol],
-                            start=start,
-                            end=dt.date.today().strftime('%Y-%m-%d'),
-                            pre_offset=pre_tick_offset,
-                            verbose=verbose)
-
-        if tmp_df.empty:
-            del_list.append(symbol)
-            continue
-
-        active_start_time = active_file_info[symbol][1]
-        active_start_ts = str2ts(active_start_time, '00:00:00', format='%Y%m%dT%H:%M:%S') * 2
-
-        #tmp_df['Timestamp'] = (tmp_df['Timestamp']).astype(int)
-        tmp_df['Timestamp'] = (tmp_df['Timestamp']*2).astype(int) #tick period is 0.5s, *2 to make timestamp an int
-        tmp_df.set_index('Timestamp', inplace=True)
-        df_idx = tmp_df.index
-
-        if active_start_ts < df_idx[0] or active_start_ts > df_idx[-1]:
-            print('Wrong: {}, {}, {}, will delete'.format(df_idx[0], active_start_ts, df_idx[-1]))
-            del_list.append(symbol)
-            continue
-
-        tmp_df = avg_downsample(tmp_df, avg_period=avg_period)
-        data_dict[symbol] = tmp_df
-
-    if not data_dict:
-        print('Empty data_df, quit.')
-        #exit()
-
-    return data_dict
-
-
 def datapro(data_dict):
     for symbol in data_dict:
         price_line = data_dict[symbol]['LastPrice'].values

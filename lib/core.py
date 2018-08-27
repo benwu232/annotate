@@ -218,9 +218,11 @@ class Annotation(object):
         #print(ax1.get_xlim())
         print('\non click')
         #print(event.xdata, event.ydata, event.x, event.y)
+        y_min, y_max = self.ax1.get_ylim()
+        y_per = (y_max / y_min - 1)
         x_int = int(round(event.xdata))
         time_str = (self.time_str_line[x_int])
-        self.title_str = '{}    {}'.format(self.symbol, self.gen_formated_time_str(time_str))
+        self.title_str = '{}    {}    {:.4f}'.format(self.symbol, self.gen_formated_time_str(time_str), y_per)
 
         self.win_left, self.win_right = self.ax1.get_xlim()
         self.win_start = int(self.win_left + 1)
