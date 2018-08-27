@@ -44,7 +44,7 @@ class Annotation(object):
 
         self.time_line = pd.to_datetime(self.df.index+8*3600, unit='s').values
         self.time_str_line = [str(item)[:16] for item in self.time_line]
-
+        self.title_str = self.symbol
         self.is_multi_label = False
 
     def run(self):
@@ -52,7 +52,7 @@ class Annotation(object):
         self.fig, self.ax2 = plt.subplots(facecolor='#07000d')
         self.ax1 = self.ax2.twinx()
         self.ax2.set_facecolor('#07000d')
-        plt.title(self.symbol)
+        plt.title(self.title_str)
         #scatter = ax1.scatter(x_line[win_start:win_end+1], price_line[win_start:win_end+1], s=50)
         self.ax1.spines['bottom'].set_color("#5998ff")
         self.ax1.spines['top'].set_color("#5998ff")
@@ -84,7 +84,7 @@ class Annotation(object):
         self.ax1.scatter(self.x_line[self.win_start:self.win_end+1], self.price_line[self.win_start:self.win_end+1], c=self.label_colors[self.win_start:self.win_end+1], s=50)
         self.ax1.axvline(self.pre_offset, ymax=(self.ax1.axis())[-1], color='green', alpha=0.5)
 
-        plt.title(self.symbol)
+        plt.title(self.title_str)
         self.ax2.grid(True)
 
         #ax1.tick_params(axis='y')
@@ -220,7 +220,7 @@ class Annotation(object):
         #print(event.xdata, event.ydata, event.x, event.y)
         x_int = int(round(event.xdata))
         time_str = (self.time_str_line[x_int])
-        title_str = '{}    {}'.format(self.symbol, self.gen_formated_time_str(time_str))
+        self.title_str = '{}    {}'.format(self.symbol, self.gen_formated_time_str(time_str))
 
         self.win_left, self.win_right = self.ax1.get_xlim()
         self.win_start = int(self.win_left + 1)
