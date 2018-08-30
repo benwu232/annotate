@@ -36,8 +36,8 @@ class Annotation(object):
         self.volume_line = self.df['Volume'].values
         self.seq_len = len(self.price_line)
         self.x_line = list(range(self.seq_len))
-        if 'Label' in self.data_dict:
-            self.label_line = self.data_dict['Label']
+        if 'label' in self.data_dict:
+            self.label_line = self.data_dict['label']
         else:
             self.label_line = np.zeros(self.seq_len)
         self.label_colors = ['' for _ in range(self.seq_len)]
