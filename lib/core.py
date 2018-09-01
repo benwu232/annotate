@@ -4,6 +4,7 @@ Show how to connect to keypress events
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+import copy
 from matplotlib.widgets import Cursor
 
 from lib.common import *
@@ -24,14 +25,16 @@ def save2pjson(src, out_file):
 
 
 class Annotation(object):
-    def __init__(self, data_dict):
-        self.data_dict = data_dict
+    def __init__(self, symbol, data_dir, win_size=800):
+        self.data_dict_file = data_dir + symbol + '.pkl'
+        with open(self.data_dict_file, 'rb') as f:
+            self.data_dict = pickle.load(f)
         self.symbol = self.data_dict['name']
         self.df = self.data_dict['df']
         self.pre_offset = self.data_dict['pre_offset']
 
-        self.win_start = self.pre_offset - 100
-        self.win_end = self.pre_offset + 100
+        self.win_start = self.pre_offset - win_size//2
+        self.win_end = self.pre_offset + win_size//2
         self.price_line = self.df['LastPrice'].values
         self.volume_line = self.df['Volume'].values
         self.seq_len = len(self.price_line)
@@ -47,6 +50,10 @@ class Annotation(object):
         self.title_str = self.symbol
         self.is_multi_label = False
 
+        self.last_x = self.cur_x = self.pre_offset
+        self.last_y = self.cur_y = self.price_line[self.cur_x]
+        self.restore_stack = []
+
     def run(self):
         plt.style.use('dark_background')
         self.fig, self.ax2 = plt.subplots(facecolor='#07000d')
@@ -60,7 +67,8 @@ class Annotation(object):
         self.ax1.spines['right'].set_color("#5998ff")
 
         self.fig.canvas.mpl_connect('key_press_event', self.on_press)
-        cid = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
+        #dbclick = self.fig.canvas.mpl_connect('button_press_event', self.on_click2)
+        click = self.fig.canvas.mpl_connect('button_release_event', self.on_click)
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
         #cursor = Cursor(ax1, useblit=True, color='#9ffeb0', linewidth=1)
         self.cursor = Cursor(self.ax1, useblit=True, color='cyan', linewidth=1)
@@ -69,7 +77,8 @@ class Annotation(object):
 
         self.draw()
         plt.show()
-        self.save_label(label_dir, self.symbol)
+        #self.save_label(label_dir, self.symbol)
+        save_dump(self.data_dict, self.data_dict_file)
 
     def draw(self):
         label2color(self.label_line, self.label_colors, self.win_start, self.win_end)
@@ -125,14 +134,12 @@ class Annotation(object):
         self.draw()
 
     def set_label(self, x, y):
-        print('Set ({}, {})'.format(x, y))
+        #print('Set ({}, {})'.format(x, y))
         self.label_line[x] = y
 
     def set_labels(self, x_start, x_end, y):
-        if self.is_multi_label:
-            print('Multi label end at {}'.format(x_end))
-            print('Set x[{}:{}] to {}'.format(x_start, x_end, y))
-            self.label_line[x_start:x_end+1] = y
+        #print('Set x[{}:{}] = {}'.format(x_start, x_end, y))
+        self.label_line[x_start:x_end+1] = y
 
     def get_ratio(self):
         ratio = self.price_line[self.win_start:self.win_end+1].max() / self.price_line[self.win_start:self.win_end+1].min()
@@ -143,12 +150,16 @@ class Annotation(object):
         formated_str = '{} {}'.format(time_str[:10], time_str[11:])
         return formated_str
 
-    def get_info(self, event):
+    def get_win_info(self, event):
         self.x_int = int(round(event.xdata))
         self.time_str = (self.time_str_line[self.x_int])
         print('Current: {},    {} {},     {}'.format(self.x_int, self.time_str[:10], self.time_str[11:], self.price_line[self.x_int]))
         print('Time range {} - {}'.format(self.gen_formated_time_str(self.time_str_line[self.win_start]), self.gen_formated_time_str(self.time_str_line[self.win_end])))
         print('Price range {} - {}, {}'.format(self.price_line[self.win_start:self.win_end+1].min(), self.price_line[self.win_start:self.win_end+1].max(), self.get_ratio()))
+
+    def get_click_info(self, event):
+        print('x: {} -> {}, y: {} -> {}'.format(self.last_x, self.cur_x, self.last_y, self.cur_y))
+        print('x_range: {}, y_range: {}, change_rate: {}'.format(self.cur_x-self.last_x, self.cur_y-self.last_y, self.cur_y/self.last_y-1))
 
     def save_label(self, label_dir, symbol):
         label_file = '{}/{}.label'.format(label_dir, symbol)
@@ -161,33 +172,49 @@ class Annotation(object):
 
         if event.key in ['0', '1', '2', '3', '4', '5', '6']:
             if self.is_multi_label:
-                self.set_labels(x_start=self.multi_label_start, x_end=int(round(event.xdata)), y=int(event.key))
+                x_end = int(round(event.xdata))
+                self.restore_stack.append((self.multi_label_start, copy.copy(self.label_line[self.multi_label_start:x_end+1])))
+                self.set_labels(x_start=self.multi_label_start, x_end=x_end, y=int(event.key))
+                print('Multi label ] = {}, label = {}'.format(int(round(event.xdata)), event.key))
                 self.is_multi_label = False
             else:
-                self.set_label(int(round(event.xdata)), int(event.key))
+                x = int(round(event.xdata))
+                self.restore_stack.append((x, copy.copy(self.label_line[x])))
+                self.set_label(x, int(event.key))
+                print('x = {}, label = {}'.format(int(round(event.xdata)), event.key))
             self.draw()
 
-        elif event.key == '[':
-            self.multi_label_start = int(round(event.xdata))
-            self.set_label(self.multi_label_start, 7)
-            print('Multi label start at {}'.format(self.multi_label_start))
-            self.is_multi_label = True
+        elif event.key == 'u':
+            if len(self.restore_stack) > 0:
+                x_start, values = self.restore_stack.pop()
+                if type(values) is not np.ndarray:
+                    values = [values]
+                for k, value in enumerate(values):
+                    self.set_label(x_start+k, value)
             self.draw()
+
+        #elif event.key == '[':
+        #    self.multi_label_start = int(round(event.xdata))
+        #    self.set_label(self.multi_label_start, 7)
+        #    print('Multi label start at {}'.format(self.multi_label_start))
+        #    self.is_multi_label = True
+        #    self.draw()
 
         elif event.key == 'c':
-            self.save_label(label_dir, self.symbol)
+            #self.save_label(label_dir, self.symbol)
+            save_dump(self.data_dict, self.data_dict_file)
 
-        elif event.key == 't':
-            x_int = int(round(event.xdata))
-            time_str = (self.time_str_line[x_int])
-            print('{} ===>> {} {}'.format(x_int, time_str[:10], time_str[11:]))
+        #elif event.key == 't':
+        #    x_int = int(round(event.xdata))
+        #    time_str = (self.time_str_line[x_int])
+        #    print('{} ===>> {} {}'.format(x_int, time_str[:10], time_str[11:]))
 
         elif event.key == 'i':
-            self.get_info(event)
+            self.get_win_info(event)
 
         elif event.key == 'h':
             print('0-unknown, 1-buy, 2-sell, 3-short, 4-cover, 5-up, 6-down')
-            print('c-save, i-information, [-multi-label start')
+            print('c-save, i-information, right_click-start multi-label, u-undo labeling')
             print('left-window left 1 step, right-window right 1 step')
             print('ctrl+left-window left 1/4, ctrl+right-window right 1/4')
             print('scroll up - zoom out, scroll down - zoom in')
@@ -210,6 +237,14 @@ class Annotation(object):
             self.step_draw(step)
             self.get_ratio()
 
+    def on_click2(self, event):
+        if not event.inaxes:
+            return
+
+        if not event.dblclick:
+            return
+        print('Double click')
+
 
     def on_click(self, event):
         if not event.inaxes:
@@ -218,10 +253,21 @@ class Annotation(object):
         #print(ax1.get_xlim())
         print('\non click')
         #print(event.xdata, event.ydata, event.x, event.y)
+        #right button, start multi-label
+        if event.button == 3:
+            self.multi_label_start = int(round(event.xdata))
+            #self.set_label(self.multi_label_start, 7)
+            #print('Multi label start at {}'.format(self.multi_label_start))
+            print('Multi label [ = {}'.format(self.multi_label_start))
+            self.is_multi_label = True
+            #self.draw()
         y_min, y_max = self.ax1.get_ylim()
         y_per = (y_max / y_min - 1)
-        x_int = int(round(event.xdata))
-        time_str = (self.time_str_line[x_int])
+        self.last_x = self.cur_x
+        self.last_y = self.cur_y
+        self.cur_x = int(round(event.xdata))
+        self.cur_y = self.price_line[self.cur_x]
+        time_str = (self.time_str_line[self.cur_x])
         self.title_str = '{}    {}    {:.4f}'.format(self.symbol, self.gen_formated_time_str(time_str), y_per)
 
         self.win_left, self.win_right = self.ax1.get_xlim()
@@ -243,7 +289,7 @@ class Annotation(object):
         #win_end -= margin
 
         self.draw()
-        self.get_info(event)
+        self.get_click_info(event)
 
     def on_scroll(self, event):
         zoom_rate = 1.1
@@ -286,7 +332,7 @@ class Annotation(object):
         #win_end -= margin
 
         self.draw()
-        self.get_info(event)
+        self.get_win_info(event)
 
 
 

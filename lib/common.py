@@ -56,6 +56,12 @@ def str2ts(date_str, time_str, format='%Y-%m-%dT%H:%M:%S'):
     dt_time = str2dt(date_str+'T'+time_str, format=format)
     return dt_time.timestamp()
 
+def save_dump(dump_data, out_file):
+    with open(out_file, 'wb') as fp:
+        print('Writing to %s.' % out_file)
+        #pickle.dump(dump_data, fp, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(dump_data, fp)
+
 def gen_file_list(root_dir, surfix=''):
     file_list = []
     match_name = os.path.join(root_dir, '*{}'.format(surfix))
