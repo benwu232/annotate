@@ -150,9 +150,10 @@ class Annotation(object):
         formated_str = '{} {}'.format(time_str[:10], time_str[11:])
         return formated_str
 
-    def get_win_info(self, event):
+    def get_info(self, event):
         self.x_int = int(round(event.xdata))
         self.time_str = (self.time_str_line[self.x_int])
+        print('Available length: {}, from {} to {}'.format(len(self.price_line)-self.pre_offset, self.gen_formated_time_str(self.time_str_line[self.pre_offset]), self.gen_formated_time_str(self.time_str_line[-1])))
         print('Current: {},    {} {},     {}'.format(self.x_int, self.time_str[:10], self.time_str[11:], self.price_line[self.x_int]))
         print('Time range {} - {}'.format(self.gen_formated_time_str(self.time_str_line[self.win_start]), self.gen_formated_time_str(self.time_str_line[self.win_end])))
         print('Price range {} - {}, {}'.format(self.price_line[self.win_start:self.win_end+1].min(), self.price_line[self.win_start:self.win_end+1].max(), self.get_ratio()))
@@ -210,7 +211,7 @@ class Annotation(object):
         #    print('{} ===>> {} {}'.format(x_int, time_str[:10], time_str[11:]))
 
         elif event.key == 'i':
-            self.get_win_info(event)
+            self.get_info(event)
 
         elif event.key == 'h':
             print('0-unknown, 1-buy, 2-sell, 3-short, 4-cover, 5-up, 6-down')
@@ -332,7 +333,7 @@ class Annotation(object):
         #win_end -= margin
 
         self.draw()
-        self.get_win_info(event)
+        self.get_info(event)
 
 
 
