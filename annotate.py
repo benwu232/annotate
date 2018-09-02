@@ -29,6 +29,6 @@ if __name__ == '__main__':
     anno = Annotation(symbol, futures_dir, win_size)
     anno.run()
 
-# example: python annotate.py cu1409 -w 1000 -d /home/wb/work/qute/data/ini/futures_data.pkl
+# example: python annotate.py cu1409 -w 1000 -d /home/wb/work/qute/data/futures_symbol/
 
 
