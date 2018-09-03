@@ -85,7 +85,7 @@ class Annotation(object):
         self.ax1.clear()
         self.ax2.clear()
         self.ax2.fill_between(self.x_line[self.win_start:self.win_end+1], self.volume_line[self.win_start:self.win_end+1], color='gray', linewidth=1, alpha=0.5)
-        self.ax2.set_ylim(0, 4 * self.volume_line[self.win_start:self.win_end+1].max())
+        self.ax2.set_ylim(0, 8 * np.mean(self.volume_line[self.win_start:self.win_end+1]))
 
         #ax1.plot(x_line[win_start:win_end+1], price_line[win_start:win_end+1], 'gray', label='Price', linewidth=1)
         self.ax1.plot(self.x_line[self.win_start:self.win_end+1], self.price_line[self.win_start:self.win_end+1], 'gray', linewidth=1)
